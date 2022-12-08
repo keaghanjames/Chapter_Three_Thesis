@@ -1,0 +1,36 @@
+######################
+# Substitution Model #
+######################
+
+#again going from scratch here so we will see
+
+#Q <- fnJC(4)
+
+#with rate variation between sites
+
+#alpha_cytb ~ dnExponential( 1.0 )
+
+#moves.append( mvScale(alpha_cytb, lambda=0.01, weight=1.0) )
+#moves.append( mvScale(alpha_cytb, lambda=0.1,  weight=1.0) )
+#moves.append( mvScale(alpha_cytb, lambda=1,    weight=1.0) )
+
+#rates_alignment := fnDiscretizeGamma( alpha_cytb, alpha_cytb, 4 )
+
+
+#without rate variation between sites (hopefully) 
+
+Q := fnJC(4)
+
+
+#we also assume a strict exponential clock of character change
+clock_alignment ~ dnExponential(1.0)
+
+moves.append( mvScale(clock_alignment, lambda=0.01, weight=4.0) )
+moves.append( mvScale(clock_alignment, lambda=0.1,  weight=4.0) )
+moves.append( mvScale(clock_alignment, lambda=1,    weight=4.0) )
+moves.append( mvScale(clock_alignment, lambda=10,   weight=4.0) )
+
+#finally we create a phylogenetic continuous time Markov chain (PhyloCTMC) distribution for our sequence data
+phySeq ~ dnPhyloCTMC(tree=fbd_tree, Q=Q, branchRates=clock_alignment, type="DNA")
+#phySeq ~ dnPhyloCTMC(tree=fbd_tree, Q=Q, siteRates = rates_alignment, branchRates=clock_alignment, type="DNA")
+phySeq.clamp(alignment)

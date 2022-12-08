@@ -1,0 +1,15 @@
+#initialise rnd_run
+setwd("rnd")
+source("/home/keaghan_yaxley/cloud_run/scripts/mcmc_CEFBDP_Specimens.Rev")
+setwd("..")
+
+#initialise brw_run
+setwd("brw")
+source("/home/keaghan_yaxley/cloud_run/scripts/mcmc_CEFBDP_Specimens.Rev")
+setwd("..")
+
+#initialise pd_run
+setwd("pd")
+source("/home/keaghan_yaxley/cloud_run/scripts/mcmc_CEFBDP_Specimens.Rev")
+setwd("..")
+q()

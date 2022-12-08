@@ -1,0 +1,46 @@
+#read in the taxa list with min and max fossil ages
+taxa <- readTaxonData("data/taxa.tsv")
+
+#now load matrices for nuclear and morphological data
+alignment <- readDiscreteCharacterData("data/alignment.nex")
+morpho <- readDiscreteCharacterData("data/states.nex")
+
+#add missing taxa to each data set to ensure that they are of the same length
+alignment.addMissingTaxa( taxa )
+morpho.addMissingTaxa( taxa )
+
+#now we need to create helper variables
+n_taxa <- taxa.size()
+moves = VectorMoves()
+
+#moves is part of the RevBayes workspace and not the hierarchical model
+
+#now we set up the source file part
+
+source("/home/keaghan_yaxley/cloud_run/scripts/model_FBDP_all.Rev") # FBD tree prior
+
+source("/home/keaghan_yaxley/cloud_run/scripts/model_alignment.Rev") # Molecular substitution model (JC)
+
+source("/home/keaghan_yaxley/cloud_run/scripts/model_Morph.Rev") # Morphological character change model
+
+#now we specify a workspace model variable for our full specified DAG
+mymodel = model(Q)
+
+#and a workspace model for our monitors
+monitors = VectorMonitors()
+
+monitors.append( mnModel(filename="output/sim.log", printgen=10) ) #save every named variable except the tree topology
+monitors.append( mnFile(filename="output/sim.trees", printgen=10, fbd_tree) ) #this saves our trees
+monitors.append( mnScreen(printgen=100) )
+
+
+#now we set up the MCMC
+
+mymcmc = mcmc(mymodel, monitors, moves)
+mymcmc.run(generations=100000)
+
+
+#extract the MCC tree
+trace = readTreeTrace("output/sim.trees")
+mccTree(trace, file="output/sim.mcc.tre" )
+

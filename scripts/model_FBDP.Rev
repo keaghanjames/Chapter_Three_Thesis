@@ -1,0 +1,131 @@
+###################################
+#Fossilised Birth-Death Rate Model#
+###################################
+
+
+#two key parameters are the speciation and extinction rate
+
+speciation_rate ~ dnExponential(10)
+extinction_rate ~ dnExponential(10)
+
+#and we need to propose some moves for these parameters
+moves.append( mvScale(speciation_rate, lambda = 0.01, weight = 1))
+moves.append( mvScale(speciation_rate, lambda = 0.1,  weight = 1))
+moves.append( mvScale(speciation_rate, lambda = 1.0,  weight = 1))
+moves.append( mvScale(speciation_rate, lambda = 10.0, weight = 1))
+
+
+moves.append( mvScale(extinction_rate, lambda = 0.01, weight = 1))
+moves.append( mvScale(extinction_rate, lambda = 0.1,  weight = 1))
+moves.append( mvScale(extinction_rate, lambda = 1.0,  weight = 1))
+moves.append( mvScale(extinction_rate, lambda = 10.0, weight = 1))
+
+
+#we may also want to monitor diversification and turnover rates
+diversification := speciation_rate - extinction_rate
+turnover := extinction_rate/speciation_rate
+
+#all extant taxa are represented in our dataset, therefore we will fix the probablity for sampling an extant linage, specifying rho as 1
+rho <- 1.0
+
+#next we create a model for the fossil sampling rate (psi) - and propose some moves
+
+psi ~ dnExponential(10)
+
+moves.append( mvScale(psi, lambda = 0.01, weight = 1))
+moves.append( mvScale(psi, lambda = 0.1,  weight = 1))
+moves.append( mvScale(psi, lambda = 1.0,  weight = 1))
+moves.append( mvScale(psi, lambda = 10.0, weight = 1))
+
+
+#for the all-in treatment could fix value of psi to speed up the run
+
+#psi <- 1.0
+
+#and now we specify the model for the origin time and propose some moves
+
+#origin_time ~ dnUniform(4.0, 5.0)#here was a problem
+
+#moves.append( mvSlide(origin_time, delta = 0.01, weight = 5))
+#moves.append( mvSlide(origin_time, delta = 0.1,  weight = 5))
+#moves.append( mvSlide(origin_time, delta = 1.0,  weight = 5))
+
+#could fix the value of the origin time
+
+origin_time <- 3.218876
+
+#all parameters of the FBD model are now specified, the next step is to use them to define the FBD tree prior distribution
+fbd_tree ~ dnFBDP(origin = origin_time, lambda = speciation_rate, mu = extinction_rate, psi = psi, rho = rho, taxa = taxa) #THIS MAY BE A PROBLEM!!! (~/=)
+
+
+##########################
+# specifying an outgroup #
+##########################
+
+#PROBLEM - the below works, and is probably appropriate, but it requires a starting tree that matches the constraints
+#i.e. a tree in which "Z" is the outgroup to all other tips
+
+#fbd_dist = dnFBDP(origin = origin_time, lambda = speciation_rate, mu = extinction_rate, psi = psi, rho = rho, taxa = taxa) #THIS MAY BE A PROBLEM!!! (~/=)
+
+# Since we want to jointly infer ancestral states, we need to set an a priori
+# rooting constraint on our phylogeny. So here we set an ingroup and outgroup.
+#outgroup = ["Z"]
+
+#i = 1
+#for (j in 1:taxa.size()) {
+#    found = false
+#    for (k in 1:outgroup.size()) {
+#        if (outgroup[k] == taxa[j].getSpeciesName()) {
+#            found = true
+#            break
+#        }
+#        k += 1
+#    }
+#    if (!found) {
+#        ingroup[i] = taxa[j].getSpeciesName()
+#        i += 1
+#    }
+#    j += 1
+#}
+#mi = 0
+
+# We make make a vector of clade objects.
+#clade_ingroup = clade(ingroup)
+#clade_outgroup = clade(outgroup)
+#constraints = [clade_ingroup, clade_outgroup]
+
+#wrap it all together with the constraints
+#fbd_tree ~ dnConstrainedTopology(fbd_dist, constraints=constraints)
+# OR?
+#fbd_tree ~ dnConstrainedTopology(fbd_dist, outgroup=clade_outgroup)
+
+
+#starting_tree <- readBranchLengthTrees("data/starting_tree.nwk")[1] #you'll need to generate this
+
+#topology.setValue(starting_tree.topology())
+
+
+#now we specify some moves that propose changes to the topology 
+
+moves.append( mvFNPR(fbd_tree, weight=25.0) )
+#moves.append( mvCollapseExpandFossilBranch(fbd_tree, origin_time, weight=6.0) ) #I don't think I need this one, as none of the fossils are ancestors
+
+moves.append( mvNodeTimeSlideUniform(fbd_tree, weight=40.0) ) #proposes different node heights
+#moves.append( mvRootTimeSlideUniform(fbd_tree, origin_time, weight=5.0) ) #proposes different root ages
+
+#next we need to account for uncertainty in ages of fossils 
+
+fossils = fbd_tree.getFossils()
+for(i in 1: fossils.size())
+{
+	t[i]:= tmrca(fbd_tree, clade(fossils[i]))
+
+	a_i = fossils[i].getMinAge()
+	b_i = fossils[i].getMaxAge()
+
+	F[i] ~ dnUniform(t[i] - b_i, t[i] - a_i)
+	F[i].clamp( 0 )
+}
+
+#and finally we add some moves 
+moves.append( mvFossilTimeSlideUniform(fbd_tree, origin_time, weight=10.0) )

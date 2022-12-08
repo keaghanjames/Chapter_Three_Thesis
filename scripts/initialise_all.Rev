@@ -1,0 +1,5 @@
+#initialise all_run
+setwd("all")
+source("/home/keaghan_yaxley/cloud_run/scripts/mcmc_CEFBDP_Specimens_all.Rev")
+setwd("..")
+q()
